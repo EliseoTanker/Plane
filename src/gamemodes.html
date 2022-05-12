@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Party such pro</title>
+    <link href="/css/style.css" rel="stylesheet" type="text/css" />
+    <script
+      defer
+      src="https://unpkg.com/axios/dist/axios.min.js"
+      defer
+      async
+    ></script>
+    <script>
+      async function gamemode(gamemodeID) {
+        await axios.post("/api/party/gamemode", { id: gamemodeID });
+      }
+    </script>
+  </head>
+  <body>
+    <h1>Gamemodes</h1>
+    <button onclick="gamemode('unrated')">Unrated</button>
+    <button onclick="gamemode('competitive')">Competitive</button>
+    <button onclick="gamemode('spikerush')">Spike Rush</button>
+    <button onclick="gamemode('deathmatch')">Deathmatch</button>
+    <button onclick="gamemode('ggteam')">Escalation</button>
+    <button onclick="gamemode('onefa')">Replication</button>
+    <button onclick="window.location.href='/party'">Back</button>
+  </body>
+</html>

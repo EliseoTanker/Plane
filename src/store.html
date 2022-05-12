@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Store</title>
+    <link href="/css/style.css" rel="stylesheet" type="text/css" />
+    <script
+      defer
+      src="https://unpkg.com/axios/dist/axios.min.js"
+      defer
+      async
+    ></script>
+    <link rel="apple-touch-icon" href="/images/512.png" />
+    <script src="sw-setup.js"></script>
+    <meta name="theme-color" content="#FFFFFF" />
+    <link rel="manifest" href="manifest.json" />
+    <script>
+      async function getStore() {
+        let storeData = await axios.post("/api/store");
+        let skins = storeData.data.skins;
+        document.getElementById("storeSkins").textContent = "";
+        document.getElementById("storeSkins").textContent = skins.join("\n");
+      }
+    </script>
+  </head>
+  <body>
+    <h1>Store</h1>
+    <button onclick="getStore()">Load</button>
+    <button onclick="window.location.href='/'">Back</button>
+    <pre id="storeSkins"></pre>
+  </body>
+</html>

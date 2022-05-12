@@ -1,0 +1,39 @@
+{
+  "short_name": "Valorant-PWA",
+  "name": "Valorant-API-PWA",
+  "icons": [
+    {
+      "src": "/images/256.png",
+      "sizes": "256x256"
+    },
+    {
+      "src": "/images/512.png",
+      "sizes": "512x512"
+    },
+    {
+      "src": "/images/512.png",
+      "sizes": "512x512",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Pregame page",
+      "short_name": "Pregame",
+      "description": "Go directly to the pregame page",
+      "url": "/pregame",
+      "icons": [{ "src": "/images/512.png", "sizes": "512x512" }]
+    },
+    {
+      "name": "Coregame page",
+      "short_name": "Coregame",
+      "description": "Go directly to the coregame page",
+      "url": "/coregame",
+      "icons": [{ "src": "/images/512.png", "sizes": "512x512" }]
+    }
+  ],
+  "start_url": "https://val.esileo.ml/",
+  "background_color": "#FFFFFF",
+  "theme_color": "#FFFFFF",
+  "display": "standalone"
+}

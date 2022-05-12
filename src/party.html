@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width" />
+  <title>Party</title>
+  <link href="/css/style.css" rel="stylesheet" type="text/css" />
+  <script defer src="https://unpkg.com/axios/dist/axios.min.js" async></script>
+  <link rel="apple-touch-icon" href="/images/512.png" />
+  <script src="sw-setup.js"></script>
+  <meta name="theme-color" content="#FFFFFF" />
+  <link rel="manifest" href="manifest.json" />
+  <script>
+    async function exitParty() {
+      await axios.post("/api/exit", {
+        type: "Party"
+      });
+    }
+    async function queue(join) {
+      if (join == "Custom") {
+        await axios.post("/api/party/queue", {
+          type: "Custom"
+        });
+      } else if (join) {
+        await axios.post("/api/party/queue");
+      } else await axios.post("/api/party/leave-queue");
+    }
+    async function ready() {
+      let checkBox = document.getElementById("readyCheck");
+      if (checkBox.checked == false) {
+        axios.post("/api/party/ready", {
+          ready: true
+        });
+      } else {
+        axios.post("/api/party/ready", {
+          ready: false
+        });
+      }
+    }
+    async function a11y() {
+      let checkBox = document.getElementById("a11yCheck");
+      if (checkBox.checked == true) {
+        await axios.post("/api/party/a11y", {
+          status: true
+        });
+      } else {
+        await axios.post("/api/party/a11y", {
+          status: false
+        });
+      }
+    }
+  </script>
+  <style>
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 60px;
+      height: 34px;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #2196f3;
+      -webkit-transition: 0.4s;
+      transition: 0.4s;
+      border-radius: 34px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 26px;
+      width: 26px;
+      right: 4px;
+      bottom: 4px;
+      background-color: white;
+      transition: 0.4s;
+      border-radius: 50%;
+    }
+
+    input:checked+.slider {
+      background-color: #ccc;
+    }
+
+    input:checked+.slider:before {
+      -webkit-transform: translateX(-26px);
+      -ms-transform: translateX(-26px);
+      transform: translateX(-26px);
+    }
+  </style>
+</head>
+
+<body>
+  <h1>Party</h1>
+  <button onclick="window.location.href='/party/gamemodes'">Gamemodes</button>
+  <button onclick="queue('Custom')">Start Custom Game</button>
+  <button onclick="queue(true)">Enter Matchmaking</button>
+  <button onclick="queue(false)">Leave Matchmaking</button>
+  <button onclick="exitParty()" style="color: red">Exit Party</button>
+  <button onclick="window.location.href='/'">Back</button>
+  Ready
+  <label class="switch">
+    <input type="checkbox" id="readyCheck" onclick="ready()" />
+    <span class="slider">
+  </label>
+  Privacy (Closed/Open)
+  <label class="switch">
+    <input type="checkbox" id="a11yCheck" onclick="a11y()" />
+    <span class="slider">
+  </label>
+</body>
+
+</html>
