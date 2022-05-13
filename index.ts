@@ -4,12 +4,12 @@ import express from "express";
 const app = express();
 import ip from "ip";
 import axios from "axios";
+import chalk from "chalk";
 import * as https from "https";
 import * as fs from "fs";
 import Auth from "basic-auth";
 import rateLimit from "express-rate-limit";
 import { credentialsAuth, lockfileAuth, agent } from "./val-auth.js";
-import chalk from "chalk";
 const limiter = rateLimit({
   windowMs: 10 * 60 * 1000,
   max: 100,

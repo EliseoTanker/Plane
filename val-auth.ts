@@ -15,6 +15,9 @@ export const agent = new https.Agent({
 });
 export async function credentialsAuth(username: string, password: string) {
   // Stolen from https://github.com/ev3nvy/valorant-reauth-script/blob/f79a5efd3ecd7757bafa7f63a1d9ca579bd1bc58/index.js :>
+  if (!process.env.VAL_PASSWORD || !process.env.VAL_USERNAME)
+    return console.log("No valorant auth username or password");
+
   const parseUrl = (uri) => {
     let url = new URL(uri);
     let params = new URLSearchParams(url.hash.substring(1));
@@ -60,7 +63,8 @@ export async function credentialsAuth(username: string, password: string) {
       httpsAgent: agent,
     }
   );
-  var tokens: any = parseUrl(access_tokens.data.response.parameters.uri);
+  access_tokens.data.error ? console.log(access_tokens.data.error) : console;
+  var tokens: any = await parseUrl(access_tokens.data.response.parameters.uri);
   tokens.token = (
     await axios.post(
       "https://entitlements.auth.riotgames.com/api/token/v1",
