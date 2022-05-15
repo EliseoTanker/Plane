@@ -1,4 +1,4 @@
-//a
+import * as crypto from "crypto";
 import * as dotenv from "dotenv";
 dotenv.config();
 import express from "express";
@@ -11,6 +11,32 @@ import * as fs from "fs";
 import Auth from "basic-auth";
 import rateLimit from "express-rate-limit";
 import { credentialsAuth, lockfileAuth, agent } from "./val-auth.js";
+import * as path from "path";
+function file_hash() {
+  const fileBuffer = fs.readFileSync(
+    path.basename(new URL("", import.meta.url).pathname)
+  );
+  const hashSum = crypto.createHash("md5");
+  hashSum.update(fileBuffer);
+  const hex = hashSum.digest("hex");
+  return hex;
+}
+async function check_version() {
+  let hash = await file_hash();
+  let github_hash = (
+    await axios.get(
+      "https://raw.githubusercontent.com/EliseoTanker/PWA-Typescript/main/file-hash-thing.json"
+    )
+  ).data.hash;
+  if (github_hash !== hash) {
+    console.log(
+      chalk.red(
+        `Your version of the application appears to be outdated (Current MD5 hash ${hash}, expected hash ${github_hash})`
+      )
+    );
+  }
+}
+check_version();
 const limiter = rateLimit({
   windowMs: 10 * 60 * 1000,
   max: 100,
@@ -30,6 +56,7 @@ const auth = function (res, req, next) {
   return next();
 };
 const invAgents: any = {
+  "": "In Range",
   "41fb69c1-4189-7b37-f117-bcaf1e96f1bf": "Astra",
   "5f8d3a7f-467b-97f3-062c-13acf203c006": "Breach",
   "22697a3d-45bf-8dd7-4fec-84a9e28c69d7": "Chamber",
@@ -79,7 +106,7 @@ async function heartbeat() {
 setTimeout(heartbeat, 15000);
 heartbeat();
 process.on("uncaughtException", function (err) {
-  console.error(err);
+  //console.log(err);
 });
 app
   .use(limiter)
@@ -117,11 +144,19 @@ async function axiosGet(url: string, headers: any, entitlements: any) {
   }
   return res.data;
 }
-async function authPost(url: string, entitlements: any, body?: any) {
+async function authPost(
+  url: string,
+  entitlements: any,
+  body?: any,
+  method?: any
+) {
   if (!body) {
     var body: any = {};
   }
-  let req = axios.post(url, body, {
+  if (!method) {
+    var method: any = "post";
+  }
+  let config = {
     headers: {
       "X-Riot-Entitlements-JWT": entitlements.token,
       Authorization: "Bearer " + entitlements.access_token,
@@ -129,8 +164,10 @@ async function authPost(url: string, entitlements: any, body?: any) {
       "X-Riot-ClientPlatform":
         "ew0KCSJwbGF0Zm9ybVR5cGUiOiAiUEMiLA0KCSJwbGF0Zm9ybU9TIjogIldpbmRvd3MiLA0KCSJwbGF0Zm9ybU9TVmVyc2lvbiI6ICIxMC4wLjE5MDQyLjEuMjU2LjY0Yml0IiwNCgkicGxhdGZvcm1DaGlwc2V0IjogIlVua25vd24iDQp9",
     },
-  });
-  return req;
+  };
+  method === "delete"
+    ? axios.delete(url, config)
+    : axios[method](url, body, config);
 }
 type Entitlements = {
   access_token: string;
@@ -175,20 +212,18 @@ async function getPreGameID(entitlements: any) {
     `https://glz-${region[0]}-1.${region[1]}.a.pvp.net/pregame/v1/players/${entitlements.subject}`,
     "JWT",
     entitlements
-  ).catch(function (err) {
-    console.log("Pregame match not found", err);
+  ).catch(function () {
+    console.log("Pregame match not found");
     return;
   });
-  if (preGameMatchID !== undefined) {
-    return preGameMatchID.MatchID;
-  }
+  return preGameMatchID.MatchID;
 }
 async function getCoreGameID(entitlements: any) {
   let CoreGameMatchID = await axiosGet(
     `https://glz-${region[0]}-1.${region[1]}.a.pvp.net/core-game/v1/players/${entitlements.subject}`,
     "JWT",
     entitlements
-  ).catch(function (err) {
+  ).catch(function () {
     console.log("Match not found");
     return;
   });
@@ -202,7 +237,6 @@ app.post("/api/party/gamemode", async (req, res) => {
     "JWT",
     entitlements
   ).catch(function (err) {
-    console.log(err);
     console.log(`Party request returned an error`);
   });
   await authPost(
@@ -284,7 +318,7 @@ app.post("/api/party/leave-queue", async (req, res) => {
     `https://glz-${region[0]}-1.${region[1]}.a.pvp.net/parties/v1/players/${entitlements.subject}`,
     "JWT",
     entitlements
-  ).catch(function (err) {
+  ).catch(function () {
     console.log(`Party request returned an error`);
   });
   await authPost(
@@ -343,55 +377,61 @@ app.post("/api/lock", async (req, res) => {
     }
   }
 });
+let Skins = {
+  Vandal: "9c82e19d-4575-0200-1a81-3eacf00cf872",
+  Classic: "29a0cfab-485b-f5d5-779a-b59f85e204a8",
+};
 app.post("/api/loadouts", async (req, res) => {
   if (req.body.type === "PreGame") {
     res.send({ implemented: false });
   } else if (req.body.type === "CoreGame") {
     let CoreGameID = await getCoreGameID(entitlements);
     if (!CoreGameID)
-      return (
-        (res.statusCode = 404),
-        res.send({ error: "Lockfile or match not found" })
-      );
+      return (res.statusCode = 404), res.send({ error: "Match not found" });
     let matchDetails = await axiosGet(
       `https://glz-${region[0]}-1.${region[1]}.a.pvp.net/core-game/v1/matches/${CoreGameID}`,
       "JWT",
       entitlements
-    );
+    ).catch(function (err) {
+      if (err.response.status === 404) {
+        console.log("Error: Match not found");
+      }
+    });
     let matchPlayers = matchDetails.Players;
     let arr = [];
     for (let i = 0; i < matchPlayers.length; i++) {
       //Player
-      let puuid = matchPlayers[i].Subject;
       let name: any = await axios
         .put(`https://pd.${region[1]}.a.pvp.net/name-service/v2/players/`, [
-          puuid,
+          matchPlayers[i].Subject,
         ])
         .catch(function (err) {
           console.log(err.response.status);
         });
-      name = `${name.data[0].GameName}#${name.data[0].TagLine}`; // Request per each player so hardcoded 0
+      name = `${name.data[0].GameName}#${name.data[0].TagLine}`;
       let agent = invAgents[matchPlayers[i].CharacterID];
       //Skin
       let loadout = await axiosGet(
         `https://glz-${region[0]}-1.${region[1]}.a.pvp.net/core-game/v1/matches/${CoreGameID}/loadouts`,
         "JWT",
         entitlements
-      ).catch(function (err) {
-        if (err.response.status === 404) {
-          console.log("Error: Match not found");
-        }
-      });
-      let Skins = {
-        Vandal: "9c82e19d-4575-0200-1a81-3eacf00cf872",
-        Classic: "29a0cfab-485b-f5d5-779a-b59f85e204a8",
-      };
+      );
+      //Match Skin and push
+      let weaponsJSON = await axios.get("https://valorant-api.com/v1/weapons");
+      /*
+      let playerSkin =
+       loadout.Loadouts[i].Loadout.Items[Skins[process.env.SKINS_WEAPON]]
+         .Sockets["bcef87d6-209b-46c6-8b19-fbe40bd95abc"].Item.ID;
+      Skin = weaponsJSON["data"]["data"].find(
+        (w) => w.uuid === Skins[process.env.SKINS_WEAPON]
+      );
+      Skin = Skin.skins.find((s) => s.uuid === playerSkin).displayName;
+      arr.push(`${name} : ${Skin}: ${agent}`);
+      */
       let Skin =
         loadout.Loadouts[i].Loadout.Items[Skins["Vandal"]].Sockets[
           "bcef87d6-209b-46c6-8b19-fbe40bd95abc"
         ].Item.ID;
-      //Match Skin and push
-      let weaponsJSON = await axios.get("https://valorant-api.com/v1/weapons");
       for (let i = 0; i < weaponsJSON["data"]["data"].length; i++) {
         if (weaponsJSON.data.data[i].uuid === Skins["Vandal"]) {
           for (let x = 0; x < weaponsJSON.data.data[i].skins.length; x++) {
@@ -405,7 +445,7 @@ app.post("/api/loadouts", async (req, res) => {
     }
     res.send({ skins: arr });
     console.log(arr);
-  } else res.send("no");
+  }
 });
 app.post("/api/exit", async (req, res) => {
   if (req.body.type === "PreGame") {
@@ -429,10 +469,11 @@ app.post("/api/exit", async (req, res) => {
       console.log(err.response.data);
     });
   } else if (req.body.type === "Party") {
-    console.log(entitlements.subject);
     await authPost(
       `https://glz-${region[0]}-1.${region[1]}.a.pvp.net/parties/v1/players/${entitlements.subject}`,
-      entitlements
+      entitlements,
+      {},
+      "delete"
     ).catch((err) => {
       console.log(err.response.data);
     });
@@ -502,17 +543,16 @@ app.post("/api/ranks", async (req, res) => {
     let matchPlayers = matchDetails.Teams[0].Players;
     let arr = [];
     for (let i = 0; i < matchPlayers.length; i++) {
-      let subjectPuuid = matchDetails.Teams[0].Players[i].Subject;
       let puuid: any = await axios
         .put(`https://pd.${region[1]}.a.pvp.net/name-service/v2/players/`, [
-          subjectPuuid,
+          matchDetails.Teams[0].Players[i].Subject,
         ])
         .catch(function (err) {
           console.log(err.response.status);
         });
       puuid = `${puuid.data[0].GameName}#${puuid.data[0].TagLine}`;
       let playerMMR = await axiosGet(
-        `https://pd.${region[1]}.a.pvp.net/mmr/v1/players/${subjectPuuid}`,
+        `https://pd.${region[1]}.a.pvp.net/mmr/v1/players/${matchDetails.Teams[0].Players[i].Subject}`,
         "JWT",
         entitlements
       );
@@ -536,18 +576,14 @@ app.post("/api/ranks", async (req, res) => {
     let matchPlayers = matchDetails.Players;
     let arr = [];
     for (let i = 0; i < matchPlayers.length; i++) {
-      let subjectPuuid = matchDetails.Players[i].Subject;
       let puuid: any = await axios.put(
         `https://pd.${region[1]}.a.pvp.net/name-service/v2/players/`,
-        [subjectPuuid]
+        [matchDetails.Players[i].Subject]
       );
       let playerMMR = await axiosGet(
-        `https://pd.${region[1]}.a.pvp.net/mmr/v1/players/${subjectPuuid}`,
+        `https://pd.${region[1]}.a.pvp.net/mmr/v1/players/${matchDetails.Players[i].Subject}`,
         "JWT",
         entitlements
-      );
-      console.log(
-        playerMMR.QueueSkills.competitive.SeasonalInfoBySeasonID[seasonID]
       );
       if (playerMMR.QueueSkills.competitive.SeasonalInfoBySeasonID !== null) {
         var Rank =
@@ -563,32 +599,48 @@ app.post("/api/ranks", async (req, res) => {
     res.send({ ranks: arr });
   }
 });
+//TODO
+let contracts = await axios.get("https://valorant-api.com/v1/contracts");
+let contractToID = {};
+for (let i = 0; i < contracts.data.data.length; i++) {
+  contractToID[contracts.data.data[i].displayName] =
+    contracts.data.data[i].uuid;
+}
+app.post("/api/contracts/select", async (req, res) => {
+  authPost(
+    `https://pd.${region[1]}.a.pvp.net/contracts/v1/contracts/${
+      entitlements.subject
+    }/special/${contractToID[req.body.CharacterID]}`,
+    entitlements
+  );
+  res.send({ status: 200 });
+});
 
-function sendData(path: any, res: any) {
-  fs.readFile(path, "utf8", (err, data) => {
+function sendHTML(fName: any, res: any) {
+  fs.readFile(`./src/${fName}.html`, "utf8", (err, data) => {
     res.send(data);
   });
 }
 app.get("/", auth, (req, res) => {
-  sendData("./src/index.html", res);
+  sendHTML("index", res);
 });
 app.get("/party", auth, (req, res) => {
-  sendData("./src/party.html", res);
+  sendHTML("party", res);
 });
 app.get("/party/gamemodes", auth, (req, res) => {
-  sendData("./src/gamemodes.html", res);
+  sendHTML("gamemodes", res);
 });
 app.get("/pregame", auth, (req, res) => {
-  sendData("./src/pregame.html", res);
+  sendHTML("pregame", res);
 });
 app.get("/coregame", auth, (req, res) => {
-  sendData("./src/coregame.html", res);
+  sendHTML("coregame", res);
 });
 app.get("/contracts", auth, (req, res) => {
-  sendData("./src/contracts.html", res);
+  sendHTML("contracts", res);
 });
 app.get("/store", auth, (req, res) => {
-  sendData("./src/store.html", res);
+  sendHTML("store", res);
 });
 app.get("/test", (req, res) => {
   res.send("Hello World");
