@@ -1,4 +1,3 @@
-import * as crypto from "crypto";
 import * as dotenv from "dotenv";
 dotenv.config();
 import express from "express";
@@ -8,10 +7,11 @@ import axios from "axios";
 import chalk from "chalk";
 import * as https from "https";
 import * as fs from "fs";
+import * as crypto from "crypto";
+import * as path from "path";
 import Auth from "basic-auth";
 import rateLimit from "express-rate-limit";
 import { credentialsAuth, lockfileAuth, agent } from "./val-auth.js";
-import * as path from "path";
 function file_hash() {
   const fileBuffer = fs.readFileSync(
     path.basename(new URL("", import.meta.url).pathname)
