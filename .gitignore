@@ -1,4 +1,5 @@
-PWA-Server.exe
+PWA-Server-Credentials
+PWA-Server-Lockfile
 val-auth.js
 SSL/privkey.pem
 SSL/fullchain.pem
@@ -109,4 +110,10 @@ dist
 
 # TernJS port file
 .tern-port
+.env
+PWA-Server-Lockfile.exe
+.gitignore
+PWA-Server-Credentials.exe
+.env
+.env
 .env
