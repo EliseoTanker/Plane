@@ -10,6 +10,7 @@ import * as https from "https";
 import * as fs from "fs";
 import * as crypto from "crypto";
 import * as path from "path";
+import readlineSync from "readline-sync";
 import Auth from "basic-auth";
 import rateLimit from "express-rate-limit";
 import { credentialsAuth, lockfileAuth, agent } from "./val-auth.js";
@@ -44,13 +45,18 @@ const limiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: true,
 });
+if (dev) {
+  var webUsername = process.env.AUTH_USERNAME;
+  var webPassword = process.env.AUTH_PASSWORD;
+} else {
+  var webUsername = readlineSync.question("Website username: ");
+  var webPassword = readlineSync.question("Website password: ", {
+    hideEchoBack: true,
+  });
+}
 const auth = function (res, req, next) {
   var user = Auth(res);
-  if (
-    !user ||
-    process.env.AUTH_USERNAME !== user.name ||
-    process.env.AUTH_PASSWORD !== user.pass
-  ) {
+  if (!user || webUsername !== user.name || webPassword !== user.pass) {
     req.set("WWW-Authenticate", 'Basic realm="example"');
     return req.status(401).send();
   }
@@ -179,9 +185,14 @@ type Entitlements = {
   token: string;
   subject: string;
 };
-import readlineSync from "readline-sync";
 let region: any = ["na", "na"];
-if (process.env.AUTH_MODE === "Credentials") {
+if (dev) {
+  var authMode = process.env.AUTH_MODE;
+} else
+  var authMode = readlineSync.question(
+    '\nAuth mode ("Credentials" or "Lockfile"): '
+  );
+if (authMode === "Credentials") {
   if (dev) {
     var entitlements: Entitlements = await credentialsAuth(
       process.env.VAL_USERNAME,
@@ -207,7 +218,7 @@ if (process.env.AUTH_MODE === "Credentials") {
     )
   ).data.affinities;
   region = [regions.live, regions.pbe];
-} else if (process.env.AUTH_MODE === "Lockfile") {
+} else if (authMode === "Lockfile") {
   var entitlements: Entitlements = await lockfileAuth();
   if (dev) {
     region = process.env.REGIONS.split(" ");
@@ -216,7 +227,12 @@ if (process.env.AUTH_MODE === "Credentials") {
       "Region (Twice, separated by a space. E.g.: na na, if region = br/latam set shard first then na): "
     );
   }
-} else console.log('Invalid auth type (Must be "Lockfile" or "Credentials"');
+} else {
+  console.log(
+    chalk.red('Invalid auth type (Must be "Lockfile" or "Credentials")')
+  );
+  process.exit(1);
+}
 
 async function getVersion() {
   let version = (await axios.get("https://valorant-api.com/v1/version")).data
