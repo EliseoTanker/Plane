@@ -1,3 +1,4 @@
+let dev = false;
 import * as dotenv from "dotenv";
 dotenv.config();
 import express from "express";
@@ -36,7 +37,7 @@ async function check_version() {
     );
   }
 }
-check_version();
+if (!dev) await check_version();
 const limiter = rateLimit({
   windowMs: 10 * 60 * 1000,
   max: 100,
@@ -178,12 +179,21 @@ type Entitlements = {
   token: string;
   subject: string;
 };
+import readlineSync from "readline-sync";
 let region: any = ["na", "na"];
 if (process.env.AUTH_MODE === "Credentials") {
-  var entitlements: Entitlements = await credentialsAuth(
-    `${process.env.VAL_USERNAME}`,
-    `${process.env.VAL_PASSWORD}`
-  );
+  if (dev) {
+    var entitlements: Entitlements = await credentialsAuth(
+      process.env.VAL_USERNAME,
+      process.env.VAL_PASSWORD
+    );
+  } else {
+    let username = readlineSync.question("Riot username: ");
+    let password = readlineSync.question("Password: ", {
+      hideEchoBack: true,
+    });
+    var entitlements: Entitlements = await credentialsAuth(username, password);
+  }
   var regions = (
     await axios.put(
       "https://riot-geo.pas.si.riotgames.com/pas/v1/product/valorant",
@@ -199,7 +209,13 @@ if (process.env.AUTH_MODE === "Credentials") {
   region = [regions.live, regions.pbe];
 } else if (process.env.AUTH_MODE === "Lockfile") {
   var entitlements: Entitlements = await lockfileAuth();
-  region = process.env.REGIONS.split(" ");
+  if (dev) {
+    region = process.env.REGIONS.split(" ");
+  } else {
+    region = readlineSync.question(
+      "Region (Twice, separated by a space. E.g.: na na, if region = br/latam set shard first then na): "
+    );
+  }
 } else console.log('Invalid auth type (Must be "Lockfile" or "Credentials"');
 
 async function getVersion() {
@@ -649,16 +665,19 @@ app.get("/r", (req, res) => {
   console.log(req.ip);
   res.redirect("https://youtu.be/dQw4w9WgXcQ");
 });
-
-const httpsServer = https.createServer(
-  {
-    key: fs.readFileSync("./ssl/privkey.pem"),
-    cert: fs.readFileSync("./ssl/fullchain.pem"),
-  },
-  app
-);
-
-httpsServer.listen(process.env.PORT, () => {
-  let orange = chalk.hex("#FFA500");
-  console.log("HTTPS server listening on port", orange(process.env.PORT));
-});
+let orange = chalk.hex("#FFA500");
+if (dev) {
+  const httpsServer = https.createServer(
+    {
+      key: fs.readFileSync("./ssl/privkey.pem"),
+      cert: fs.readFileSync("./ssl/fullchain.pem"),
+    },
+    app
+  );
+  httpsServer.listen(process.env.PORT, () => {
+    console.log(`HTTPS server listening on port ${orange(process.env.PORT)}`);
+  });
+} else
+  app.listen(80, () => {
+    console.log(`HTTP server listening on port ${orange(80)}`);
+  });

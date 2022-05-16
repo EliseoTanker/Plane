@@ -15,7 +15,7 @@ export const agent = new https.Agent({
 });
 export async function credentialsAuth(username: string, password: string) {
   // Stolen from https://github.com/ev3nvy/valorant-reauth-script/blob/f79a5efd3ecd7757bafa7f63a1d9ca579bd1bc58/index.js :>
-  if (!process.env.VAL_PASSWORD || !process.env.VAL_USERNAME)
+  if (!username || !password)
     return console.log("No valorant auth username or password");
 
   const parseUrl = (uri) => {

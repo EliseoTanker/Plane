@@ -5,14 +5,14 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "start": "concurrently \"tsc -w\" \"nodemon\"",
-    "run": "node index.js",
-    "build": "pkg -t node16-win-x64 index.js"
+    "start": "concurrently -c blue,yellow \"tsc -w\"  \"nodemon\"",
+    "run": "node index.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@types/readline-sync": "^1.4.4",
     "@typescript-eslint/eslint-plugin": "^5.23.0",
     "@typescript-eslint/parser": "^5.23.0",
     "axios": "^0.26.0",
@@ -26,8 +26,11 @@
     "express-ip-access-control": "^1.1.0",
     "express-rate-limit": "^6.3.0",
     "helmet": "^5.0.2",
+    "inquirer": "^8.2.4",
     "ip": "^1.1.5",
     "open": "^8.4.0",
+    "prompt-sync": "^4.2.0",
+    "readline-sync": "^1.4.10",
     "superagent": "^7.1.1"
   },
   "devDependencies": {
