@@ -35,3 +35,4 @@ button:active {
   position: relative;
   top: 2px;
 }
+body.swal2-shown:not(.swal2-no-backdrop):not(.swal2-toast-shown), html.swal2-shown:not(.swal2-no-backdrop):not(.swal2-toast-shown) { height: 100% !important; overflow-y: visible !important; }

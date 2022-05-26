@@ -1,19 +1,18 @@
-let dev = false;
-import * as dotenv from "dotenv";
-dotenv.config();
+let dev = true;
 import express from "express";
 const app = express();
-import ip from "ip";
-import axios from "axios";
-import chalk from "chalk";
 import * as https from "https";
 import * as fs from "fs";
 import * as crypto from "crypto";
 import * as path from "path";
+import { credentialsAuth, lockfileAuth, agent } from "./val-auth.js";
+import ip from "ip";
+import axios from "axios";
+import chalk from "chalk";
 import readlineSync from "readline-sync";
 import Auth from "basic-auth";
 import rateLimit from "express-rate-limit";
-import { credentialsAuth, lockfileAuth, agent } from "./val-auth.js";
+import "dotenv/config";
 function file_hash() {
   const fileBuffer = fs.readFileSync(
     path.basename(new URL("", import.meta.url).pathname)
@@ -105,34 +104,16 @@ const agents = {
   yoru: "7f94d92c-4234-0a36-9646-3a87eb8b5c89",
   fade: "dade69b4-4f5a-8528-247b-219e5a1facd6",
 };
-async function heartbeat() {
-  await axios.post(
-    "https://betteruptime.com/api/v1/heartbeat/sVMghGFnCpApCcq9NZTAQLpt"
-  );
-}
-setTimeout(heartbeat, 15000);
-heartbeat();
 process.on("uncaughtException", function (err) {
-  //console.log(err);
+  if (dev) console.log(err);
 });
-app
-  .use(limiter)
-  .use(express.static("public"))
-  .use(express.json())
-  .use(function (req, res, next) {
-    res.header("Access-Control-Allow-Origin", ip.address());
-    res.header(
-      "Access-Control-Allow-Headers",
-      "Origin, X-Requested-With, Content-Type, Accept"
-    );
-    next();
-  });
-async function axiosGet(url: string, headers: any, entitlements: any) {
+app.use(limiter).use(express.static("public")).use(express.json());
+async function axiosGet(url: string, headers: any) {
   if (headers === "JWT") {
     var res = await axios.get(url, {
       headers: {
         "X-Riot-Entitlements-JWT": entitlements.token,
-        "X-Riot-ClientVersion": await getVersion(),
+        "X-Riot-ClientVersion": version,
         "X-Riot-ClientPlatform":
           "ew0KCSJwbGF0Zm9ybVR5cGUiOiAiUEMiLA0KCSJwbGF0Zm9ybU9TIjogIldpbmRvd3MiLA0KCSJwbGF0Zm9ybU9TVmVyc2lvbiI6ICIxMC4wLjE5MDQyLjEuMjU2LjY0Yml0IiwNCgkicGxhdGZvcm1DaGlwc2V0IjogIlVua25vd24iDQp9",
         Authorization: "Bearer " + entitlements.access_token,
@@ -151,30 +132,23 @@ async function axiosGet(url: string, headers: any, entitlements: any) {
   }
   return res.data;
 }
-async function authPost(
-  url: string,
-  entitlements: any,
-  body?: any,
-  method?: any
-) {
+async function authPost(url: string, body?: any, method?: string) {
   if (!body) {
     var body: any = {};
   }
   if (!method) {
-    var method: any = "post";
+    var method = "post";
   }
   let config = {
     headers: {
       "X-Riot-Entitlements-JWT": entitlements.token,
       Authorization: "Bearer " + entitlements.access_token,
-      "X-Riot-ClientVersion": await getVersion(),
+      "X-Riot-ClientVersion": version,
       "X-Riot-ClientPlatform":
         "ew0KCSJwbGF0Zm9ybVR5cGUiOiAiUEMiLA0KCSJwbGF0Zm9ybU9TIjogIldpbmRvd3MiLA0KCSJwbGF0Zm9ybU9TVmVyc2lvbiI6ICIxMC4wLjE5MDQyLjEuMjU2LjY0Yml0IiwNCgkicGxhdGZvcm1DaGlwc2V0IjogIlVua25vd24iDQp9",
     },
   };
-  method === "delete"
-    ? axios.delete(url, config)
-    : axios[method](url, body, config);
+  await axios[method](url, body, config);
 }
 type Entitlements = {
   access_token: string;
@@ -234,78 +208,69 @@ if (authMode === "Credentials") {
   process.exit(1);
 }
 
-async function getVersion() {
-  let version = (await axios.get("https://valorant-api.com/v1/version")).data
-    .data.riotClientVersion;
-  return version;
-}
-async function getPreGameID(entitlements: any) {
+let version = (await axios.get("https://valorant-api.com/v1/version")).data.data
+  .riotClientVersion;
+async function getPreGameID() {
   let preGameMatchID = await axiosGet(
     `https://glz-${region[0]}-1.${region[1]}.a.pvp.net/pregame/v1/players/${entitlements.subject}`,
-    "JWT",
-    entitlements
+    "JWT"
   ).catch(function () {
     console.log("Pregame match not found");
     return;
   });
-  return preGameMatchID.MatchID;
+  if (preGameMatchID) return preGameMatchID.MatchID;
 }
-async function getCoreGameID(entitlements: any) {
+async function getCoreGameID() {
   let CoreGameMatchID = await axiosGet(
     `https://glz-${region[0]}-1.${region[1]}.a.pvp.net/core-game/v1/players/${entitlements.subject}`,
-    "JWT",
-    entitlements
-  ).catch(function () {
+    "JWT"
+  ).catch(function (err) {
     console.log("Match not found");
     return;
   });
-  if (CoreGameMatchID !== undefined) {
-    return CoreGameMatchID.MatchID;
-  }
+  if (CoreGameMatchID) return CoreGameMatchID.MatchID;
 }
-app.post("/api/party/gamemode", async (req, res) => {
+async function getPartyID() {
   let partyReq = await axiosGet(
     `https://glz-${region[0]}-1.${region[1]}.a.pvp.net/parties/v1/players/${entitlements.subject}`,
-    "JWT",
-    entitlements
-  ).catch(function (err) {
-    console.log(`Party request returned an error`);
-  });
+    "JWT"
+  ).catch(function (err) {});
+  if (partyReq) return partyReq.CurrentPartyID;
+}
+app.post("/api/party/gamemode", async (req, res) => {
+  let partyID = await getPartyID();
+  if (!partyID) {
+    let message = "Party not found";
+    res.statusCode = 404;
+    res.send({ error: message });
+    console.log(message);
+    return;
+  }
   await authPost(
-    `https://glz-${region[0]}-1.${region[1]}.a.pvp.net/parties/v1/parties/${partyReq.CurrentPartyID}/queue/`,
-    entitlements,
+    `https://glz-${region[0]}-1.${region[1]}.a.pvp.net/parties/v1/parties/${partyID}/queue/`,
     {
       queueID: req.body.id,
     }
   ).catch((err) => {
-    if (err) {
-      if (err.response.data.httpStatus === 400) {
-        res.statusCode = 400;
-        let message = "Can't change gamemode while in custom game";
-        res.send({ error: message });
-        console.log(message);
-      } else {
-        let message = "Gamemode not avaliable";
-        res.send({ error: message });
-        console.log(message);
-      }
-    } else {
-      res.send({ gamemode: req.body.id });
-      console.log(`Gamemode selected: ${req.body.id}`);
+    if (err.response.data.httpStatus === 400) {
+      res.statusCode = 400;
+      let message = "Can't change gamemode while in custom game";
+      res.send({ error: message });
+      console.log(message);
     }
   });
+  console.log(`Gamemode selected: ${req.body.id}`);
+  res.send({ gamemode: req.body.id });
 });
 app.post("/api/party/ready", async (req, res) => {
   let partyReq = await axiosGet(
     `https://glz-${region[0]}-1.${region[1]}.a.pvp.net/parties/v1/players/${entitlements.subject}`,
-    "JWT",
-    entitlements
+    "JWT"
   );
   if (req.body.ready === true) var ready = true;
   if (req.body.ready === false) var ready = false;
   await authPost(
     `https://glz-${region[0]}-1.${region[1]}.a.pvp.net/parties/v1/parties/${partyReq.CurrentPartyID}/members/${entitlements.subject}/setReady`,
-    entitlements,
     {
       ready: ready,
     }
@@ -314,14 +279,13 @@ app.post("/api/party/ready", async (req, res) => {
 app.post("/api/party/a11y", async (req, res) => {
   let partyReq = await axiosGet(
     `https://glz-${region[0]}-1.${region[1]}.a.pvp.net/parties/v1/players/${entitlements.subject}`,
-    "JWT",
-    entitlements
+    "JWT"
   );
   if (req.body.status === true) var a11y = "CLOSED";
   if (req.body.status === false) var a11y = "OPEN";
   await authPost(
     `https://glz-${region[0]}-1.${region[1]}.a.pvp.net/parties/v1/parties/${partyReq.CurrentPartyID}/accessibility`,
-    entitlements,
+
     {
       accessibility: a11y,
     }
@@ -330,14 +294,12 @@ app.post("/api/party/a11y", async (req, res) => {
 app.post("/api/party/queue", async (req, res) => {
   let partyReq = await axiosGet(
     `https://glz-${region[0]}-1.${region[1]}.a.pvp.net/parties/v1/players/${entitlements.subject}`,
-    "JWT",
-    entitlements
+    "JWT"
   );
   authPost(
     `https://glz-${region[0]}-1.${region[1]}.a.pvp.net/parties/v1/parties/${
       partyReq.CurrentPartyID
-    }/${req.body.type === "Custom" ? "startcustomgame" : "matchmaking/join"}`,
-    entitlements
+    }/${req.body.type === "Custom" ? "startcustomgame" : "matchmaking/join"}`
   ).catch(function (err) {
     console.log(err.response.data);
   });
@@ -348,14 +310,12 @@ app.post("/api/party/queue", async (req, res) => {
 app.post("/api/party/leave-queue", async (req, res) => {
   let partyReq = await axiosGet(
     `https://glz-${region[0]}-1.${region[1]}.a.pvp.net/parties/v1/players/${entitlements.subject}`,
-    "JWT",
-    entitlements
+    "JWT"
   ).catch(function () {
     console.log(`Party request returned an error`);
   });
   await authPost(
-    `https://glz-${region[0]}-1.${region[1]}.a.pvp.net/parties/v1/parties/${partyReq.CurrentPartyID}/matchmaking/leave/`,
-    entitlements
+    `https://glz-${region[0]}-1.${region[1]}.a.pvp.net/parties/v1/parties/${partyReq.CurrentPartyID}/matchmaking/leave/`
   ).catch(function (err) {
     console.log(err.response.data);
   });
@@ -363,13 +323,12 @@ app.post("/api/party/leave-queue", async (req, res) => {
   console.log("Left matchmaking");
 });
 app.post("/api/select", async (req, res) => {
-  let PreGameID = await getPreGameID(entitlements);
+  let PreGameID = await getPreGameID();
   if (!PreGameID)
     return (res.statusCode = 404), res.send({ error: "Match not found" });
   let pröAgent = agents[invAgents[req.body.agentID].toLowerCase()];
   await authPost(
-    `https://glz-${region[0]}-1.${region[1]}.a.pvp.net/pregame/v1/matches/${PreGameID}/select/${pröAgent}`,
-    entitlements
+    `https://glz-${region[0]}-1.${region[1]}.a.pvp.net/pregame/v1/matches/${PreGameID}/select/${pröAgent}`
   ).catch(function (err) {
     console.log(err.response.data);
   });
@@ -380,13 +339,12 @@ app.post("/api/select", async (req, res) => {
   });
 });
 app.post("/api/lock", async (req, res) => {
-  let PreGameID = await getPreGameID(entitlements);
+  let PreGameID = await getPreGameID();
   if (!PreGameID)
     return (res.statusCode = 404), res.send({ error: "Match not found" });
   let MatchDetails = await axiosGet(
     `https://glz-${region[0]}-1.${region[1]}.a.pvp.net/pregame/v1/matches/${PreGameID}`,
-    "JWT",
-    entitlements
+    "JWT"
   );
   let MatchPlayers = MatchDetails.Teams[0].Players;
   for (let i = 0; i < MatchPlayers.length; i++) {
@@ -397,8 +355,7 @@ app.post("/api/lock", async (req, res) => {
       else {
         let selectedAgent = MatchDetails.Teams[0].Players[i].CharacterID;
         authPost(
-          `https://glz-${region[0]}-1.${region[1]}.a.pvp.net/pregame/v1/matches/${PreGameID}/lock/${selectedAgent}`,
-          entitlements
+          `https://glz-${region[0]}-1.${region[1]}.a.pvp.net/pregame/v1/matches/${PreGameID}/lock/${selectedAgent}`
         ).catch(function (err) {
           console.log(
             `${err.response.data.httpStatus} ${err.response.data.message}`
@@ -417,13 +374,12 @@ app.post("/api/loadouts", async (req, res) => {
   if (req.body.type === "PreGame") {
     res.send({ implemented: false });
   } else if (req.body.type === "CoreGame") {
-    let CoreGameID = await getCoreGameID(entitlements);
+    let CoreGameID = await getCoreGameID();
     if (!CoreGameID)
       return (res.statusCode = 404), res.send({ error: "Match not found" });
     let matchDetails = await axiosGet(
       `https://glz-${region[0]}-1.${region[1]}.a.pvp.net/core-game/v1/matches/${CoreGameID}`,
-      "JWT",
-      entitlements
+      "JWT"
     ).catch(function (err) {
       if (err.response.status === 404) {
         console.log("Error: Match not found");
@@ -445,8 +401,7 @@ app.post("/api/loadouts", async (req, res) => {
       //Skin
       let loadout = await axiosGet(
         `https://glz-${region[0]}-1.${region[1]}.a.pvp.net/core-game/v1/matches/${CoreGameID}/loadouts`,
-        "JWT",
-        entitlements
+        "JWT"
       );
       //Match Skin and push
       let weaponsJSON = await axios.get("https://valorant-api.com/v1/weapons");
@@ -475,40 +430,43 @@ app.post("/api/loadouts", async (req, res) => {
         }
       }
     }
+    console.log(arr.join("\n"));
     res.send({ skins: arr });
-    console.log(arr);
   }
 });
 app.post("/api/exit", async (req, res) => {
   if (req.body.type === "PreGame") {
-    let PreGameID = await getPreGameID(entitlements);
+    let PreGameID = await getPreGameID();
     if (!PreGameID)
       return (res.statusCode = 404), res.send({ error: "Match not found" });
     await authPost(
-      `https://glz-${region[0]}-1.${region[1]}.a.pvp.net/pregame/v1/matches/${PreGameID}/quit`,
-      entitlements
+      `https://glz-${region[0]}-1.${region[1]}.a.pvp.net/pregame/v1/matches/${PreGameID}/quit`
     ).catch((err) => {
       console.log(err.response.data);
     });
   } else if (req.body.type === "CoreGame") {
-    let coreGameID = await getCoreGameID(entitlements);
+    let coreGameID = await getCoreGameID();
     if (!coreGameID)
       return (res.statusCode = 404), res.send({ error: "Match not found" });
     await authPost(
-      `https://glz-${region[0]}-1.${region[1]}.a.pvp.net/core-game/v1/players/${entitlements.subject}/disassociate/${coreGameID}`,
-      entitlements
+      `https://glz-${region[0]}-1.${region[1]}.a.pvp.net/core-game/v1/players/${entitlements.subject}/disassociate/${coreGameID}`
     ).catch((err) => {
       console.log(err.response.data);
     });
   } else if (req.body.type === "Party") {
-    await authPost(
-      `https://glz-${region[0]}-1.${region[1]}.a.pvp.net/parties/v1/players/${entitlements.subject}`,
-      entitlements,
-      {},
-      "delete"
-    ).catch((err) => {
-      console.log(err.response.data);
-    });
+    await axios
+      .delete(
+        `https://glz-${region[0]}-1.${region[1]}.a.pvp.net/parties/v1/players/${entitlements.subject}`,
+        {
+          headers: {
+            "X-Riot-Entitlements-JWT": entitlements.token,
+            Authorization: "Bearer " + entitlements.access_token,
+          },
+        }
+      )
+      .catch((err) => {
+        console.log(err.response.data);
+      });
     res.send({ status: 200 });
   }
 });
@@ -516,8 +474,7 @@ app.post("/api/store", async (req, res) => {
   let SkinOffers = (
     await axiosGet(
       `https://pd.${region[1]}.a.pvp.net/store/v2/storefront/${entitlements.subject}`,
-      "JWT",
-      entitlements
+      "JWT"
     )
   ).SkinsPanelLayout.SingleItemOffers;
   let skinsJSON = await axios.get("https://valorant-api.com/v1/weapons/skins");
@@ -564,13 +521,12 @@ const Tiers: any = {
 app.post("/api/ranks", async (req, res) => {
   let seasonID = "3e47230a-463c-a301-eb7d-67bb60357d4f";
   if (req.body.type === "PreGame") {
-    let PreGameID = await getPreGameID(entitlements);
+    let PreGameID = await getPreGameID();
     if (!PreGameID)
       return (res.statusCode = 404), res.send({ error: "Match not found" });
     let matchDetails = await axiosGet(
       `https://glz-${region[0]}-1.${region[1]}.a.pvp.net/pregame/v1/matches/${PreGameID}`,
-      "JWT",
-      entitlements
+      "JWT"
     );
     let matchPlayers = matchDetails.Teams[0].Players;
     let arr = [];
@@ -585,8 +541,7 @@ app.post("/api/ranks", async (req, res) => {
       puuid = `${puuid.data[0].GameName}#${puuid.data[0].TagLine}`;
       let playerMMR = await axiosGet(
         `https://pd.${region[1]}.a.pvp.net/mmr/v1/players/${matchDetails.Teams[0].Players[i].Subject}`,
-        "JWT",
-        entitlements
+        "JWT"
       );
       let Rank =
         playerMMR.QueueSkills.competitive.SeasonalInfoBySeasonID[seasonID]
@@ -597,13 +552,12 @@ app.post("/api/ranks", async (req, res) => {
     console.log(arr.join("\n"));
     res.send({ ranks: arr });
   } else if (req.body.type === "CoreGame") {
-    let CoreGameID = await getCoreGameID(entitlements);
+    let CoreGameID = await getCoreGameID();
     if (!CoreGameID)
       return (res.statusCode = 404), res.send({ error: "Match not found" });
     let matchDetails = await axiosGet(
       `https://glz-${region[0]}-1.${region[1]}.a.pvp.net/core-game/v1/matches/${CoreGameID}`,
-      "JWT",
-      entitlements
+      "JWT"
     );
     let matchPlayers = matchDetails.Players;
     let arr = [];
@@ -614,8 +568,7 @@ app.post("/api/ranks", async (req, res) => {
       );
       let playerMMR = await axiosGet(
         `https://pd.${region[1]}.a.pvp.net/mmr/v1/players/${matchDetails.Players[i].Subject}`,
-        "JWT",
-        entitlements
+        "JWT"
       );
       if (playerMMR.QueueSkills.competitive.SeasonalInfoBySeasonID !== null) {
         var Rank =
@@ -631,22 +584,23 @@ app.post("/api/ranks", async (req, res) => {
     res.send({ ranks: arr });
   }
 });
-//TODO
 let contracts = await axios.get("https://valorant-api.com/v1/contracts");
 let contractToID = {};
 for (let i = 0; i < contracts.data.data.length; i++) {
-  contractToID[contracts.data.data[i].displayName] =
+  contractToID[contracts.data.data[i].displayName.split(" ")[0].toLowerCase()] =
     contracts.data.data[i].uuid;
 }
 app.post("/api/contracts/select", async (req, res) => {
   authPost(
     `https://pd.${region[1]}.a.pvp.net/contracts/v1/contracts/${
       entitlements.subject
-    }/special/${contractToID[req.body.CharacterID]}`,
-    entitlements
-  );
+    }/special/${contractToID[req.body.CharacterID]}`
+  ).catch(function (err) {
+    console.log(err.response.status);
+  });
   res.send({ status: 200 });
 });
+//TODO add contract progress
 
 function sendHTML(fName: any, res: any) {
   fs.readFile(`./src/${fName}.html`, "utf8", (err, data) => {
@@ -674,12 +628,11 @@ app.get("/contracts", auth, (req, res) => {
 app.get("/store", auth, (req, res) => {
   sendHTML("store", res);
 });
-app.get("/test", (req, res) => {
-  res.send("Hello World");
+app.get("/offline", auth, (req, res) => {
+  res.send("offline");
 });
-app.get("/r", (req, res) => {
-  console.log(req.ip);
-  res.redirect("https://youtu.be/dQw4w9WgXcQ");
+app.use((req, res, next) => {
+  res.status(404).send("404, Tonto");
 });
 let orange = chalk.hex("#FFA500");
 if (dev) {

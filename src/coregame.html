@@ -1,52 +1,79 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width" />
-    <title>Game such pro</title>
-    <link href="/css/style.css" rel="stylesheet" type="text/css" />
-    <script src="sw-setup.js"></script>
-    <meta name="theme-color" content="#FFFFFF" />
-    <link rel="apple-touch-icon" href="/images/512.png" />
-    <link rel="manifest" href="manifest.json" />
-    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
-    <script>
-      async function ranks() {
-        let ranksArr = await axios
-          .post("/api/ranks", { type: "CoreGame" })
-          .catch(function (err) {
-            console.log("Match not found");
-          });
-        let ranks = ranksArr.data.ranks;
-        document.getElementById("ranks").textContent = "";
-        document.getElementById("ranks").textContent = ranks.join("\n");
-      }
-      async function loadouts() {
-        let skinsArr = await axios
-          .post("/api/loadouts", { type: "CoreGame" })
-          .catch(function (err) {
-            console.log("Match not found");
-          });
-        let skins = skinsArr.data.skins;
-        document.getElementById("skins").textContent = "";
-        document.getElementById("skins").textContent = skins.join("\n");
-      }
-      async function exitCoreGame() {
-        await axios
-          .post("/api/exit", { type: "CoreGame" })
-          .catch(function (err) {
-            console.log("Match not found");
-          });
-      }
-    </script>
-  </head>
-  <body>
-    <h1>Coregame</h1>
-    <button onclick="ranks()">Ranks</button>
-    <button onclick="loadouts()">Skins</button>
-    <button onclick="exitCoreGame()" style="color: red">Exit</button>
-    <button onclick="window.location.href='/'">Back</button>
-    <pre id="ranks" class="centered"></pre>
-    <pre id="skins" class="centered"></pre>
-  </body>
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width" />
+  <title>Game such pro</title>
+  <link href="/css/style.css" rel="stylesheet" type="text/css" />
+  <script src="sw-setup.js"></script>
+  <meta name="theme-color" content="#FFFFFF" />
+  <link rel="apple-touch-icon" href="/images/512.png" />
+  <link rel="manifest" href="manifest.json" />
+  <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script defer>
+    function proAlert(title, message, icon, timer) {
+      Swal.fire({
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        title: title,
+        text: message,
+        timer: timer || 3000,
+        timerProgressBar: true,
+        icon: icon,
+      })
+    }
+    async function ranks() {
+      let ranksArr = await axios
+        .post("/api/ranks", {
+          type: "CoreGame"
+        })
+        .catch(function (err) {
+          console.log("Match not found")
+          proAlert('Error!', 'Match not found', 'error')
+        });
+      if (!ranksArr) return
+      let ranks = ranksArr.data.ranks;
+      document.getElementById("ranks").textContent = "";
+      document.getElementById("ranks").textContent = ranks.join("\n");
+    }
+    async function loadouts() {
+      let skinsArr = await axios
+        .post("/api/loadouts", {
+          type: "CoreGame"
+        })
+        .catch(function (err) {
+          console.log("Match not found");
+          proAlert('Error!', 'Match not found', 'error')
+        });
+      if (!skinsArr) return
+      let skins = skinsArr.data.skins;
+      document.getElementById("skins").textContent = "";
+      document.getElementById("skins").textContent = skins.join("\n");
+    }
+    async function exitCoreGame() {
+      await axios
+        .post("/api/exit", {
+          type: "CoreGame"
+        })
+        .catch(function (err) {
+          console.log("Match not found");
+          proAlert('Error!', 'Match not found', 'error')
+        });
+    }
+  </script>
+</head>
+
+<body>
+  <h1>Coregame</h1>
+  <button onclick="ranks()">Ranks</button>
+  <button onclick="loadouts()">Skins</button>
+  <button onclick="exitCoreGame()" style="color: red">Exit</button>
+  <button onclick="window.location.href='/'">Back</button>
+  <pre id="ranks" class="centered"></pre>
+  <pre id="skins" class="centered"></pre>
+</body>
+
 </html>
