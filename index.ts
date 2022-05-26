@@ -6,7 +6,6 @@ import * as fs from "fs";
 import * as crypto from "crypto";
 import * as path from "path";
 import { credentialsAuth, lockfileAuth, agent } from "./val-auth.js";
-import ip from "ip";
 import axios from "axios";
 import chalk from "chalk";
 import readlineSync from "readline-sync";
