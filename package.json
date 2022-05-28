@@ -5,7 +5,7 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "start": "concurrently -c blue,yellow \"tsc -w\"  \"nodemon\"",
+    "start": "concurrently -c blue,yellow \"tsc -w\"  \"nodemon -e *\"",
     "run": "node index.js -e js,html,env,json",
     "index-hash": "certutil -hashfile index.js MD5"
   },
@@ -16,7 +16,6 @@
     "@types/readline-sync": "^1.4.4",
     "axios": "^0.27.2",
     "basic-auth": "^2.0.1",
-    "body-parser": "^1.20.0",
     "chalk": "^4.1.2",
     "dotenv": "^16.0.1",
     "express": "^4.18.1",

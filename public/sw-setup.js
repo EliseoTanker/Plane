@@ -4,14 +4,14 @@ if ("serviceWorker" in navigator) {
       .register("service-worker.js")
       .then(
         function (registration) {
-          console.log("SW Registered!");
+          //console.log("SW Registered!");
         },
         function (err) {
-          console.log("ServiceWorker registration failed: ", err);
+          //console.log("ServiceWorker registration failed: ", err);
         }
       )
       .catch(function (err) {
-        console.log(err);
+        //console.log(err);
       });
   });
 } else {
