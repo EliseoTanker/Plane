@@ -39,10 +39,13 @@
       document.getElementById("ranks").textContent = "";
       document.getElementById("ranks").textContent = ranks.join("\n");
     }
-    async function loadouts() {
+    async function loadouts(plane) {
+      if (plane) names = true
+      else names = false
       let skinsArr = await axios
         .post("/api/loadouts", {
-          type: "CoreGame"
+          type: "CoreGame",
+          names: names
         })
         .catch(function (err) {
           console.log("Match not found");
@@ -69,7 +72,8 @@
 <body>
   <h1>Coregame</h1>
   <button onclick="ranks()">Ranks</button>
-  <button onclick="loadouts()">Skins</button>
+  <button onclick="loadouts(true)">Skins</button>
+  <button onclick="loadouts(false)">No names skins</button>
   <button onclick="exitCoreGame()" style="color: red">Exit</button>
   <button onclick="window.location.href='/'">Back</button>
   <pre id="ranks" class="centered"></pre>
