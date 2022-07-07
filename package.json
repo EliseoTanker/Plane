@@ -2,7 +2,7 @@
   "name": "valorant-api-server",
   "version": "1.0.0",
   "engines": {
-    "node": ">=10.0.0"
+    "node": ">=11.14.0"
   },
   "description": "yes PT. 2",
   "main": "index.js",
